@@ -1,6 +1,6 @@
 include(${CMAKE_TRIPLET_FILE})
 include(vcpkg_common_functions)
-set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/qt-5.7.1)
+set(SOURCE_PATH ${CURRENT_BUILDTREES_DIR}/src/qt-5.9.0-alpha)
 set(OUTPUT_PATH ${CURRENT_BUILDTREES_DIR}/${TARGET_TRIPLET})
 set(ENV{QTDIR} ${OUTPUT_PATH}/qtbase)
 set(ENV{PATH} "${OUTPUT_PATH}/qtbase/bin;$ENV{PATH}")
@@ -16,13 +16,13 @@ set(ENV{PATH} "${JOM_EXE_PATH};${PYTHON3_EXE_PATH};${CURRENT_INSTALLED_DIR}/bin;
 set(ENV{INCLUDE} "${CURRENT_INSTALLED_DIR}/include;$ENV{INCLUDE}")
 set(ENV{LIB} "${CURRENT_INSTALLED_DIR}/lib;$ENV{LIB}")
 vcpkg_download_distfile(ARCHIVE_FILE
-    URLS "http://download.qt.io/official_releases/qt/5.7/5.7.1/single/qt-everywhere-opensource-src-5.7.1.7z"
-    FILENAME "qt-5.7.1.7z"
-    SHA512 3ffcf490a1c0107a05113aebbf70015c50d05fbb35439273c243133ddb146d51aacae15ecd6411d563cc8cfe103df896394c365a69bc48fc86c3bce6a1af3107
+    URLS "https://download.qt.io/development_releases/qt/5.9/5.9.0-alpha/single/qt-everywhere-opensource-src-5.9.0-alpha.7z"
+    FILENAME "qt-5.9.0-alpha.7z"
+    SHA512 a5c52cf99acf493aeec867d2da621c9d7fde9ee62027a6c3322a61380f49b8c036e9720eb5671d99d0b41fdd4bc1b0ca6013153181c74edf752a486653e9a016
 )
 vcpkg_extract_source_archive(${ARCHIVE_FILE})
-if (EXISTS ${CURRENT_BUILDTREES_DIR}/src/qt-everywhere-opensource-src-5.7.1)
-    file(RENAME ${CURRENT_BUILDTREES_DIR}/src/qt-everywhere-opensource-src-5.7.1 ${CURRENT_BUILDTREES_DIR}/src/qt-5.7.1)
+if (EXISTS ${CURRENT_BUILDTREES_DIR}/src/qt-everywhere-opensource-src-5.9.0-alpha)
+    file(RENAME ${CURRENT_BUILDTREES_DIR}/src/qt-everywhere-opensource-src-5.9.0-alpha ${CURRENT_BUILDTREES_DIR}/src/qt-5.9.0-alpha)
 endif()
 
 if(EXISTS ${OUTPUT_PATH})
@@ -51,29 +51,29 @@ endif()
 message(STATUS "Configuring ${TARGET_TRIPLET}")
 vcpkg_execute_required_process(
     COMMAND "${SOURCE_PATH}/configure.bat"
-        -confirm-license -opensource -platform win32-msvc2015
+        -confirm-license -opensource -platform win32-msvc2017
         -debug-and-release -force-debug-info ${QT_RUNTIME_LINKAGE}
         -qt-zlib
-        -no-libjpeg
-        -no-libpng
+        -qt-libjpeg
+        -qt-libpng
         -no-freetype
         -qt-pcre
         -no-harfbuzz
-        -no-angle
+        #-no-angle
         -no-inotify
         -no-mtdev
         -no-evdev
         -system-doubleconversion
         -no-iconv
         -system-sqlite
-        -no-opengl
+        #-no-opengl
         -no-style-windowsxp
-        -no-style-windowsvista
+        #-no-style-windowsvista
         -no-style-fusion
         -mp
         -nomake examples -nomake tests -no-compile-examples
-        -skip webengine -skip declarative
-        -qt-sql-sqlite -qt-sql-psql
+        -skip webengine
+        -sql-sqlite -sql-psql
         -prefix ${CURRENT_PACKAGES_DIR}
         -bindir ${CURRENT_PACKAGES_DIR}/bin
         -hostbindir ${CURRENT_PACKAGES_DIR}/tools/qt5
@@ -168,6 +168,10 @@ file(GLOB_RECURSE DEBUG_PLUGINS
 )
 foreach(file ${DEBUG_PLUGINS})
     get_filename_component(file_n ${file} NAME)
+    # This is actually a release binary, the debug binary is called qdirect2dd.dll
+    if(file_n STREQUAL "qdirect2d.dll" OR file_n STREQUAL "qdirect2d.pdb")
+        continue()
+    endif()
     file(RELATIVE_PATH file_rel "${CURRENT_PACKAGES_DIR}/plugins" ${file})
     get_filename_component(rel_dir ${file_rel} DIRECTORY)
     file(MAKE_DIRECTORY "${CURRENT_PACKAGES_DIR}/debug/plugins/${rel_dir}")
@@ -185,11 +189,21 @@ if(EXISTS ${CURRENT_PACKAGES_DIR}/debug/plugins/gamepads/xinputgamepad.pdb)
         ${CURRENT_PACKAGES_DIR}/plugins/gamepads/xinputgamepad.pdb)
 endif()
 
-if(NOT EXISTS ${CURRENT_PACKAGES_DIR}/lib/Qt5Bootstrap.lib AND EXISTS ${CURRENT_PACKAGES_DIR}/debug/lib/Qt5Bootstrapd.lib)
-    # QT bug: https://bugreports.qt.io/browse/QTBUG-55499
-    # The release copy of Qt5Bootstrap.lib is not created when using -debug-and-release
-    # Comments from Oswald Buddenhagen indicate this is an internal library, so simply removing the mismatch should be safe.
-    file(REMOVE ${CURRENT_PACKAGES_DIR}/debug/lib/Qt5Bootstrapd.lib)
+if(EXISTS ${CURRENT_PACKAGES_DIR}/lib/Qt5QmlDevTools.lib AND NOT EXISTS ${CURRENT_PACKAGES_DIR}/debug/lib/Qt5QmlDevToolsd.lib)
+    # The debug copy of Qt5QmlDevTools.lib is not created when using -debug-and-release
+    file(REMOVE ${CURRENT_PACKAGES_DIR}/lib/Qt5QmlDevTools.lib)
+endif()
+
+if(EXISTS ${CURRENT_PACKAGES_DIR}/lib/Qt5Bootstrap.lib AND NOT EXISTS ${CURRENT_PACKAGES_DIR}/debug/lib/Qt5Bootstrapd.lib)
+    file(REMOVE ${CURRENT_PACKAGES_DIR}/lib/Qt5Bootstrap.lib)
+endif()
+
+if(EXISTS ${CURRENT_PACKAGES_DIR}/plugins/renderplugins)
+    file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/plugins/renderplugins)
+endif()
+
+if(EXISTS ${CURRENT_PACKAGES_DIR}/plugins/scenegraph)
+    file(REMOVE_RECURSE ${CURRENT_PACKAGES_DIR}/plugins/scenegraph)
 endif()
 
 vcpkg_copy_tool_dependencies(${CURRENT_PACKAGES_DIR}/tools/qt5)
